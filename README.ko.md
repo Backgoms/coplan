@@ -17,6 +17,19 @@ cd coplan
 npm install
 ```
 
+Claude Code 연동(슬래시 명령 설치 + MCP 등록):
+
+```bash
+npm run setup
+```
+
+그 다음 Claude Code에서:
+
+```text
+/user:coplan <작업>
+/user:coplan-status
+```
+
 ## 동작 흐름
 
 1. Claude가 초안 계획(Draft Plan) 생성
@@ -43,6 +56,12 @@ npm install
 npm run install:claude
 ```
 
+원클릭 설치를 원하면 아래를 사용하세요:
+
+```bash
+npm run setup
+```
+
 설치 시 자동으로 아래가 적용됩니다.
 
 - `~/.claude/commands/coplan.md` 복사
@@ -64,6 +83,12 @@ npm run login:openai
 ```
 
 `login:openai`는 기본적으로 `OPENAI_API_KEY` 환경변수를 사용합니다(권장).
+
+원클릭 설치 (OpenAI env 키):
+
+```bash
+npm run setup:openai
+```
 
 Windows PowerShell 예시:
 

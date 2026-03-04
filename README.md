@@ -17,6 +17,19 @@ cd coplan
 npm install
 ```
 
+Claude Code integration (installs slash commands + registers MCP):
+
+```bash
+npm run setup
+```
+
+Then in Claude Code:
+
+```text
+/user:coplan <your task>
+/user:coplan-status
+```
+
 ## What It Does
 
 `/coplan <task>` creates a draft plan in Claude Code, sends it to Codex for critique through MCP, then returns a revised final plan.
@@ -49,6 +62,12 @@ Security note:
 npm run install:claude
 ```
 
+If you want a one-command setup, use:
+
+```bash
+npm run setup
+```
+
 This installs:
 
 - `~/.claude/commands/coplan.md`
@@ -68,6 +87,12 @@ npm run login:openai
 ```
 
 `login:openai` uses `OPENAI_API_KEY` from environment (recommended).
+
+One-command setup (OpenAI env key):
+
+```bash
+npm run setup:openai
+```
 
 Windows PowerShell example:
 
