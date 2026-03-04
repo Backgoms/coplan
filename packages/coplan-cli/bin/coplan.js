@@ -12,7 +12,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
 const COMMANDS_TEMPLATE_DIR = path.join(REPO_ROOT, ".claude", "commands");
-const COMMAND_FILE_NAMES = ["coplan.md", "coplan-status.md", "coplan-login.md", "coplan-logout.md"];
+const COMMAND_FILE_NAMES = [
+  "coplan.md",
+  "coplan-status.md",
+  "coplan-login.md",
+  "coplan-logout.md",
+  "coplan-update.md"
+];
 const USER_COMMANDS_DIR = path.join(os.homedir(), ".claude", "commands");
 const MCP_SERVER_NAME = "coplan";
 const MCP_SERVER_ENTRY = path.join(REPO_ROOT, "packages", "coplan-mcp", "index.js");
@@ -32,6 +38,8 @@ function printHelp() {
   console.log("  coplan doctor [--json]");
   console.log("  coplan login [--provider chatgpt|openai] [--allow-plain-key-storage]");
   console.log("  coplan logout [--codex]");
+  console.log("  coplan update [--apply]");
+  console.log("  coplan mcp [--auto-update]");
   console.log("  coplan status [--json]");
   console.log("  coplan install [--scope user|project|local] [--dry-run]");
   console.log("  coplan uninstall [--scope user|project|local] [--dry-run]");
@@ -74,6 +82,28 @@ function printDoctorHelp() {
   console.log("");
   console.log("Usage:");
   console.log("  coplan doctor [--json]");
+}
+
+function printUpdateHelp() {
+  console.log("coplan update");
+  console.log("");
+  console.log("Usage:");
+  console.log("  coplan update [--apply]");
+  console.log("");
+  console.log("What it does:");
+  console.log("  - Checks if this git clone is behind origin/main.");
+  console.log("  - With --apply, runs `git pull --ff-only` (requires clean working tree).");
+}
+
+function printMcpHelp() {
+  console.log("coplan mcp");
+  console.log("");
+  console.log("Usage:");
+  console.log("  coplan mcp [--auto-update]");
+  console.log("");
+  console.log("What it does:");
+  console.log("  - Starts the coplan MCP server over stdio.");
+  console.log("  - With --auto-update, tries `git pull --ff-only` before starting.");
 }
 
 function printSetupHelp() {
@@ -148,6 +178,15 @@ function runClaudeWithSources(sources, args, options = {}) {
 
 function runCodex(args, options = {}) {
   return runExternal(getCodexCommand(), args, options);
+}
+
+function runGit(args, options = {}) {
+  return runExternal(process.platform === "win32" ? "git.exe" : "git", args, {
+    cwd: options.cwd || REPO_ROOT,
+    stdio: options.stdio || "pipe",
+    env: options.env || process.env,
+    maxBuffer: options.maxBuffer
+  });
 }
 
 function parseCommonInstallOptions(argv, { allowProvider = false } = {}) {
@@ -271,6 +310,131 @@ function parseStatusLikeOptions(argv) {
   }
 
   return options;
+}
+
+function parseUpdateOptions(argv) {
+  const options = {
+    apply: false,
+    help: false
+  };
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (token === "--help" || token === "-h") {
+      options.help = true;
+      continue;
+    }
+    if (token === "--apply") {
+      options.apply = true;
+      continue;
+    }
+    throw new Error(`Unknown option: ${token}`);
+  }
+
+  return options;
+}
+
+function parseMcpOptions(argv) {
+  const options = {
+    autoUpdate: false,
+    help: false
+  };
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (token === "--help" || token === "-h") {
+      options.help = true;
+      continue;
+    }
+    if (token === "--auto-update") {
+      options.autoUpdate = true;
+      continue;
+    }
+    throw new Error(`Unknown option: ${token}`);
+  }
+
+  return options;
+}
+
+function getOriginBranchRef() {
+  try {
+    const hasMain = runGit(["show-ref", "--verify", "--quiet", "refs/remotes/origin/main"]);
+    if (hasMain.status === 0) {
+      return "origin/main";
+    }
+  } catch (_) {
+    // ignore
+  }
+
+  try {
+    const hasMaster = runGit(["show-ref", "--verify", "--quiet", "refs/remotes/origin/master"]);
+    if (hasMaster.status === 0) {
+      return "origin/master";
+    }
+  } catch (_) {
+    // ignore
+  }
+
+  return null;
+}
+
+function getGitUpdateStatus() {
+  const gitCli = getCliInfo(process.platform === "win32" ? "git.exe" : "git", ["--version"]);
+  if (!gitCli.available) {
+    return { available: false, isRepo: false, hasOrigin: false, upstream: null, behind: null, ahead: null, detail: gitCli.detail };
+  }
+
+  const isRepo = runGit(["rev-parse", "--is-inside-work-tree"]).status === 0;
+  if (!isRepo) {
+    return { available: true, isRepo: false, hasOrigin: false, upstream: null, behind: null, ahead: null, detail: "Not a git repository." };
+  }
+
+  const originUrl = runGit(["remote", "get-url", "origin"]);
+  const hasOrigin = originUrl.status === 0;
+  if (!hasOrigin) {
+    return { available: true, isRepo: true, hasOrigin: false, upstream: null, behind: null, ahead: null, detail: "No 'origin' remote configured." };
+  }
+
+  const upstream = getOriginBranchRef();
+  if (!upstream) {
+    return { available: true, isRepo: true, hasOrigin: true, upstream: null, behind: null, ahead: null, detail: "No origin/main or origin/master found." };
+  }
+
+  try {
+    runGit(["fetch", "--quiet", "origin"]);
+  } catch (error) {
+    return {
+      available: true,
+      isRepo: true,
+      hasOrigin: true,
+      upstream,
+      behind: null,
+      ahead: null,
+      detail: error instanceof Error ? error.message : String(error)
+    };
+  }
+
+  const behindRes = runGit(["rev-list", "--count", `HEAD..${upstream}`]);
+  const aheadRes = runGit(["rev-list", "--count", `${upstream}..HEAD`]);
+  const behind = behindRes.status === 0 ? Number(String(behindRes.stdout || "0").trim()) : null;
+  const ahead = aheadRes.status === 0 ? Number(String(aheadRes.stdout || "0").trim()) : null;
+  return {
+    available: true,
+    isRepo: true,
+    hasOrigin: true,
+    upstream,
+    behind: Number.isFinite(behind) ? behind : null,
+    ahead: Number.isFinite(ahead) ? ahead : null,
+    detail: null
+  };
+}
+
+function isGitWorkingTreeClean() {
+  const status = runGit(["status", "--porcelain"]);
+  if (status.status !== 0) {
+    return false;
+  }
+  return String(status.stdout || "").trim().length === 0;
 }
 
 function writeLocalAuth(record) {
@@ -460,6 +624,7 @@ function collectStatus() {
   const claudeResolved = getCliInfo(getClaudeCommand(), ["--version"]);
   const mcp = getMcpStatus();
   const commandFiles = getCommandFilesStatus();
+  const gitUpdate = getGitUpdateStatus();
 
   const warnings = [];
   if (!claudeResolved.available) {
@@ -473,6 +638,9 @@ function collectStatus() {
   }
   if (openaiTokenFromFile) {
     warnings.push("OpenAI key exists in auth.json as plaintext. Prefer OPENAI_API_KEY env var.");
+  }
+  if (gitUpdate.available && gitUpdate.isRepo && gitUpdate.hasOrigin && typeof gitUpdate.behind === "number" && gitUpdate.behind > 0) {
+    warnings.push(`Update available: ${gitUpdate.behind} commit(s) behind ${gitUpdate.upstream}. Run \`coplan update --apply\`.`);
   }
 
   return {
@@ -497,6 +665,7 @@ function collectStatus() {
     mcp_scope: getMcpScope(mcp),
     mcp_detail: mcp.detail,
     command_files: commandFiles,
+    git_update: gitUpdate,
     warnings
   };
 }
@@ -531,6 +700,13 @@ function renderStatusText(payload) {
   console.log("Command files:");
   for (const file of payload.command_files) {
     console.log(`  - ${file.name}: ${file.exists ? "installed" : "missing"} (${file.path})`);
+  }
+  if (payload.git_update?.available) {
+    const behind = payload.git_update.behind;
+    const upstream = payload.git_update.upstream;
+    if (typeof behind === "number" && upstream) {
+      console.log(`Git update: ${behind === 0 ? "up-to-date" : `behind ${upstream} by ${behind}`}`);
+    }
   }
   if (payload.warnings.length > 0) {
     console.log("Warnings:");
@@ -623,10 +799,10 @@ function uninstallCommandTemplate({ dryRun }) {
 }
 
 function addMcpServer({ scope, dryRun }) {
-  const args = ["mcp", "add", "--scope", scope, MCP_SERVER_NAME, "--", "node", MCP_SERVER_ENTRY];
+  const args = ["mcp", "add", "--scope", scope, MCP_SERVER_NAME, "--", "node", COPLAN_CLI_ENTRY, "mcp", "--auto-update"];
 
   if (dryRun) {
-    console.log(`[dry-run] claude mcp add --scope ${scope} ${MCP_SERVER_NAME} -- node ${MCP_SERVER_ENTRY}`);
+    console.log(`[dry-run] claude mcp add --scope ${scope} ${MCP_SERVER_NAME} -- node ${COPLAN_CLI_ENTRY} mcp --auto-update`);
     return;
   }
 
@@ -789,6 +965,80 @@ async function runLogin(argv) {
   }
 
   runChatgptLogin();
+}
+
+function runUpdate(argv) {
+  const options = parseUpdateOptions(argv);
+  if (options.help) {
+    printUpdateHelp();
+    return;
+  }
+
+  const info = getGitUpdateStatus();
+  if (!info.available) {
+    console.log("git is not available.");
+    return;
+  }
+  if (!info.isRepo) {
+    console.log("Not a git clone. Nothing to update.");
+    return;
+  }
+  if (!info.hasOrigin) {
+    console.log("No 'origin' remote configured. Nothing to update.");
+    return;
+  }
+  if (!info.upstream) {
+    console.log("No origin/main or origin/master found. Nothing to update.");
+    return;
+  }
+
+  const behind = typeof info.behind === "number" ? info.behind : null;
+  if (behind === 0) {
+    console.log("Already up-to-date.");
+    return;
+  }
+  if (behind === null) {
+    console.log("Could not determine update status.");
+    if (info.detail) {
+      console.log(info.detail);
+    }
+    return;
+  }
+
+  console.log(`Update available: behind ${info.upstream} by ${behind} commit(s).`);
+  if (!options.apply) {
+    console.log("Run `coplan update --apply` to fast-forward this clone.");
+    return;
+  }
+
+  if (!isGitWorkingTreeClean()) {
+    throw new Error("Working tree is not clean. Commit or stash changes before updating.");
+  }
+
+  const pull = runGit(["pull", "--ff-only"], { stdio: "inherit" });
+  if (pull.status !== 0) {
+    throw new Error("git pull --ff-only failed.");
+  }
+}
+
+function runMcp(argv) {
+  const options = parseMcpOptions(argv);
+  if (options.help) {
+    printMcpHelp();
+    return;
+  }
+
+  if (options.autoUpdate) {
+    try {
+      runUpdate(["--apply"]);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`coplan mcp auto-update skipped: ${msg}`);
+    }
+  }
+
+  const result = runExternal("node", [MCP_SERVER_ENTRY], { stdio: "inherit", cwd: REPO_ROOT });
+  process.exitCode = result.status ?? 1;
 }
 
 function clearCoplanAuthFile() {
@@ -981,6 +1231,14 @@ async function main() {
   }
   if (command === "logout") {
     runLogout(rest);
+    return;
+  }
+  if (command === "update") {
+    runUpdate(rest);
+    return;
+  }
+  if (command === "mcp") {
+    runMcp(rest);
     return;
   }
   if (command === "status") {
