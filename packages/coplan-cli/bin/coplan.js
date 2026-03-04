@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
 const COMMANDS_TEMPLATE_DIR = path.join(REPO_ROOT, ".claude", "commands");
-const COMMAND_FILE_NAMES = ["coplan.md", "coplan-status.md"];
+const COMMAND_FILE_NAMES = ["coplan.md", "coplan-status.md", "coplan-login.md", "coplan-logout.md"];
 const USER_COMMANDS_DIR = path.join(os.homedir(), ".claude", "commands");
 const MCP_SERVER_NAME = "coplan";
 const MCP_SERVER_ENTRY = path.join(REPO_ROOT, "packages", "coplan-mcp", "index.js");
@@ -31,6 +31,7 @@ function printHelp() {
   console.log("  coplan setup [--scope user|project|local] [--provider chatgpt|openai] [--dry-run]");
   console.log("  coplan doctor [--json]");
   console.log("  coplan login [--provider chatgpt|openai] [--allow-plain-key-storage]");
+  console.log("  coplan logout [--codex]");
   console.log("  coplan status [--json]");
   console.log("  coplan install [--scope user|project|local] [--dry-run]");
   console.log("  coplan uninstall [--scope user|project|local] [--dry-run]");
@@ -48,6 +49,17 @@ function printLoginHelp() {
   console.log("Security:");
   console.log("  openai mode uses OPENAI_API_KEY environment variable by default.");
   console.log("  --allow-plain-key-storage enables legacy browser flow (not recommended).");
+}
+
+function printLogoutHelp() {
+  console.log("coplan logout");
+  console.log("");
+  console.log("Usage:");
+  console.log("  coplan logout [--codex]");
+  console.log("");
+  console.log("What it does:");
+  console.log(`  - Removes local coplan auth file: ${COPLAN_AUTH_PATH}`);
+  console.log("  - Does NOT sign you out of Codex/ChatGPT unless --codex is provided.");
 }
 
 function printStatusHelp() {
@@ -209,6 +221,28 @@ function parseLoginOptions(argv) {
       }
       options.provider = provider;
       i += 1;
+      continue;
+    }
+    throw new Error(`Unknown option: ${token}`);
+  }
+
+  return options;
+}
+
+function parseLogoutOptions(argv) {
+  const options = {
+    codex: false,
+    help: false
+  };
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (token === "--help" || token === "-h") {
+      options.help = true;
+      continue;
+    }
+    if (token === "--codex") {
+      options.codex = true;
       continue;
     }
     throw new Error(`Unknown option: ${token}`);
@@ -757,6 +791,35 @@ async function runLogin(argv) {
   runChatgptLogin();
 }
 
+function clearCoplanAuthFile() {
+  if (!fs.existsSync(COPLAN_AUTH_PATH)) {
+    console.log("coplan auth file not found, nothing to do.");
+    console.log(`Path: ${COPLAN_AUTH_PATH}`);
+    return;
+  }
+
+  fs.unlinkSync(COPLAN_AUTH_PATH);
+  console.log("coplan auth cleared.");
+  console.log(`Path: ${COPLAN_AUTH_PATH}`);
+}
+
+function runLogout(argv) {
+  const options = parseLogoutOptions(argv);
+  if (options.help) {
+    printLogoutHelp();
+    return;
+  }
+
+  clearCoplanAuthFile();
+
+  if (options.codex) {
+    const result = runCodex(["logout"], { stdio: "inherit" });
+    if (result.status !== 0) {
+      throw new Error("Codex logout failed.");
+    }
+  }
+}
+
 function runStatus(argv) {
   const options = parseStatusLikeOptions(argv);
   if (options.help) {
@@ -799,7 +862,7 @@ function runDoctor(argv) {
       fix:
         payload.provider === "chatgpt"
           ? "Run `npm run login` and complete ChatGPT sign-in."
-          : "Set OPENAI_API_KEY and run `npm run login:openai`."
+          : "Set OPENAI_API_KEY and run `coplan login --provider openai`."
     }
   ];
 
@@ -914,6 +977,10 @@ async function main() {
   }
   if (command === "login") {
     await runLogin(rest);
+    return;
+  }
+  if (command === "logout") {
+    runLogout(rest);
     return;
   }
   if (command === "status") {

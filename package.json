@@ -12,6 +12,7 @@
     "start:mcp": "node packages/coplan-mcp/index.js",
     "start:auth": "node packages/coplan-auth/server.js",
     "login": "node packages/coplan-cli/bin/coplan.js login --provider chatgpt",
+    "logout": "node packages/coplan-cli/bin/coplan.js logout",
     "login:chatgpt": "node packages/coplan-cli/bin/coplan.js login --provider chatgpt",
     "status": "node packages/coplan-cli/bin/coplan.js status",
     "doctor": "node packages/coplan-cli/bin/coplan.js doctor",
