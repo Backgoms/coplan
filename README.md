@@ -80,6 +80,12 @@ This installs:
 npm run login
 ```
 
+Logout (clears coplan local state only):
+
+```bash
+npm run logout
+```
+
 Direct CLI variants:
 
 ```bash
@@ -133,6 +139,8 @@ Claude Code slash commands:
 
 - `/user:coplan <task>`: generate plan + Codex review
 - `/user:coplan-status`: run `npm run doctor` and summarize setup/runtime state
+- `/user:coplan-login`: run `coplan login` (Codex/ChatGPT login)
+- `/user:coplan-logout`: run `coplan logout --codex` (clears coplan state + logs out of Codex)
 
 ## MCP Tool Contract
 

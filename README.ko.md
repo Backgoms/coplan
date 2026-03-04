@@ -74,6 +74,12 @@ npm run setup
 npm run login
 ```
 
+로그아웃(로컬 coplan 상태만 초기화):
+
+```bash
+npm run logout
+```
+
 위 명령은 `coplan login --provider chatgpt`와 동일합니다.
 
 
@@ -129,6 +135,8 @@ npm run uninstall:claude
 ```text
 /user:coplan redis 캐시 레이어 구현
 /user:coplan-status
+/user:coplan-login
+/user:coplan-logout
 ```
 
 출력 섹션:
