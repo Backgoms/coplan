@@ -23,6 +23,13 @@ Claude Code integration (installs slash commands + registers MCP):
 npm run setup
 ```
 
+From inside Claude Code (project-local):
+
+```text
+/project:coplan-project-setup
+/project:coplan-project-status
+```
+
 Then in Claude Code:
 
 ```text
@@ -80,40 +87,10 @@ This installs:
 npm run login
 ```
 
-OpenAI API key mode (optional):
-
-```bash
-npm run login:openai
-```
-
-`login:openai` uses `OPENAI_API_KEY` from environment (recommended).
-
-One-command setup (OpenAI env key):
-
-```bash
-npm run setup:openai
-```
-
-Windows PowerShell example:
-
-```powershell
-$env:OPENAI_API_KEY = "sk-..."
-npm run login:openai
-```
-
-macOS/Linux example:
-
-```bash
-export OPENAI_API_KEY="sk-..."
-npm run login:openai
-```
-
 Direct CLI variants:
 
 ```bash
 node packages/coplan-cli/bin/coplan.js login --provider chatgpt
-node packages/coplan-cli/bin/coplan.js login --provider openai
-node packages/coplan-cli/bin/coplan.js login --provider openai --allow-plain-key-storage
 ```
 
 4. One-shot setup for new users:
@@ -153,7 +130,6 @@ npm run uninstall:claude
 ```
 
 Legacy plain-key browser mode (`--allow-plain-key-storage`) opens `http://127.0.0.1:8719`.
-For public deployment, use environment-based OpenAI key mode instead.
 
 - Windows: `%USERPROFILE%\\.coplan\\auth.json`
 - Linux/macOS: `~/.coplan/auth.json`

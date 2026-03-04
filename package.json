@@ -13,13 +13,10 @@
     "start:auth": "node packages/coplan-auth/server.js",
     "login": "node packages/coplan-cli/bin/coplan.js login --provider chatgpt",
     "login:chatgpt": "node packages/coplan-cli/bin/coplan.js login --provider chatgpt",
-    "login:openai": "node packages/coplan-cli/bin/coplan.js login --provider openai",
     "status": "node packages/coplan-cli/bin/coplan.js status",
     "doctor": "node packages/coplan-cli/bin/coplan.js doctor",
     "setup": "node packages/coplan-cli/bin/coplan.js setup --scope user --provider chatgpt",
     "setup:chatgpt": "node packages/coplan-cli/bin/coplan.js setup --scope user --provider chatgpt",
-    "setup:openai": "node packages/coplan-cli/bin/coplan.js setup --scope user --provider openai",
-    "setup:openai:plaintext": "node packages/coplan-cli/bin/coplan.js setup --scope user --provider openai --allow-plain-key-storage",
     "install:claude": "node packages/coplan-cli/bin/coplan.js install --scope user",
     "uninstall:claude": "node packages/coplan-cli/bin/coplan.js uninstall --scope user"
   },

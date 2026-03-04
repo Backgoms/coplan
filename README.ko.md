@@ -23,6 +23,13 @@ Claude Code 연동(슬래시 명령 설치 + MCP 등록):
 npm run setup
 ```
 
+Claude Code 안에서 바로 설정(프로젝트 로컬):
+
+```text
+/project:coplan-project-setup
+/project:coplan-project-status
+```
+
 그 다음 Claude Code에서:
 
 ```text
@@ -76,45 +83,14 @@ npm run login
 
 위 명령은 `coplan login --provider chatgpt`와 동일합니다.
 
-OpenAI API 키 방식(선택):
-
-```bash
-npm run login:openai
-```
-
-`login:openai`는 기본적으로 `OPENAI_API_KEY` 환경변수를 사용합니다(권장).
-
-원클릭 설치 (OpenAI env 키):
-
-```bash
-npm run setup:openai
-```
-
-Windows PowerShell 예시:
-
-```powershell
-$env:OPENAI_API_KEY = "sk-..."
-npm run login:openai
-```
-
-macOS/Linux 예시:
-
-```bash
-export OPENAI_API_KEY="sk-..."
-npm run login:openai
-```
 
 직접 실행:
 
 ```bash
 node packages/coplan-cli/bin/coplan.js login --provider chatgpt
-node packages/coplan-cli/bin/coplan.js login --provider openai
-node packages/coplan-cli/bin/coplan.js login --provider openai --allow-plain-key-storage
 ```
 
 `--allow-plain-key-storage`를 명시한 경우에만 로컬 인증 페이지가 열립니다.
-
-레거시 저장 모드에서 브라우저에 OpenAI API Key를 입력하면 아래 경로에 저장됩니다.
 
 - Windows: `%USERPROFILE%\\.coplan\\auth.json`
 - Linux/macOS: `~/.coplan/auth.json`
