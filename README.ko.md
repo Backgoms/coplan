@@ -23,13 +23,6 @@ Claude Code 연동(슬래시 명령 설치 + MCP 등록):
 npm run setup
 ```
 
-Claude Code 안에서 바로 설정(프로젝트 로컬):
-
-```text
-/project:coplan-project-setup
-/project:coplan-project-status
-```
-
 그 다음 Claude Code에서:
 
 ```text

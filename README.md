@@ -23,13 +23,6 @@ Claude Code integration (installs slash commands + registers MCP):
 npm run setup
 ```
 
-From inside Claude Code (project-local):
-
-```text
-/project:coplan-project-setup
-/project:coplan-project-status
-```
-
 Then in Claude Code:
 
 ```text
