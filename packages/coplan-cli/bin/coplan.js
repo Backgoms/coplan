@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 import spawn from "cross-spawn";
 import { startAuthServer } from "@coplan/coplan-auth/server";
@@ -17,7 +18,8 @@ const COMMAND_FILE_NAMES = [
   "coplan-status.md",
   "coplan-login.md",
   "coplan-logout.md",
-  "coplan-update.md"
+  "coplan-update.md",
+  "coplan-auth.md"
 ];
 const USER_COMMANDS_DIR = path.join(os.homedir(), ".claude", "commands");
 const MCP_SERVER_NAME = "coplan";
@@ -38,6 +40,7 @@ function printHelp() {
   console.log("  coplan doctor [--json]");
   console.log("  coplan login [--provider chatgpt|openai] [--allow-plain-key-storage]");
   console.log("  coplan logout [--codex]");
+  console.log("  coplan auth [--plain] [--json]");
   console.log("  coplan update [--apply]");
   console.log("  coplan mcp [--auto-update]");
   console.log("  coplan status [--json]");
@@ -68,6 +71,17 @@ function printLogoutHelp() {
   console.log("What it does:");
   console.log(`  - Removes local coplan auth file: ${COPLAN_AUTH_PATH}`);
   console.log("  - Does NOT sign you out of Codex/ChatGPT unless --codex is provided.");
+}
+
+function printAuthHelp() {
+  console.log("coplan auth");
+  console.log("");
+  console.log("Usage:");
+  console.log("  coplan auth [--plain] [--json]");
+  console.log("");
+  console.log("What it does:");
+  console.log("  - Shows Codex login state (ok/off).");
+  console.log("  - In a real terminal, launches a small TUI where you can log out or exit.");
 }
 
 function printStatusHelp() {
@@ -304,6 +318,33 @@ function parseStatusLikeOptions(argv) {
     }
     if (token === "--json") {
       options.json = true;
+      continue;
+    }
+    throw new Error(`Unknown option: ${token}`);
+  }
+
+  return options;
+}
+
+function parseAuthOptions(argv) {
+  const options = {
+    json: false,
+    plain: false,
+    help: false
+  };
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (token === "--help" || token === "-h") {
+      options.help = true;
+      continue;
+    }
+    if (token === "--json") {
+      options.json = true;
+      continue;
+    }
+    if (token === "--plain") {
+      options.plain = true;
       continue;
     }
     throw new Error(`Unknown option: ${token}`);
@@ -1070,6 +1111,179 @@ function runLogout(argv) {
   }
 }
 
+function renderAuthPlain({ codex }) {
+  const line = codex.loggedIn ? "codex: login ok" : "codex: login off";
+  console.log(line);
+  if (codex.loggedIn) {
+    console.log("Hint: run `coplan logout --codex` to log out.");
+  } else {
+    console.log("Hint: run `coplan login --provider chatgpt` to log in.");
+  }
+}
+
+function renderAuthTuiScreen({ codex, selectedIndex, message }) {
+  process.stdout.write("\x1b[2J\x1b[H");
+  console.log("coplan auth");
+  console.log("");
+
+  const items = [
+    codex.loggedIn ? "codex: login ok" : "codex: login off",
+    "exit"
+  ];
+
+  for (let i = 0; i < items.length; i += 1) {
+    const prefix = i === selectedIndex ? "> " : "  ";
+    console.log(`${prefix}${items[i]}`);
+  }
+
+  console.log("");
+  if (selectedIndex === 0) {
+    if (codex.loggedIn) {
+      console.log("Selecting this will log you out of Codex.");
+      console.log("Press Enter to log out. Press Esc to cancel/exit.");
+    } else {
+      console.log("You are logged out of Codex.");
+      console.log("Run `coplan login --provider chatgpt` to log in.");
+    }
+  } else {
+    console.log("Press Enter to exit. (Esc also works)");
+  }
+
+  if (message) {
+    console.log("");
+    console.log(message);
+  }
+}
+
+function runAuthTui({ codex }) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    renderAuthPlain({ codex });
+    return;
+  }
+
+  readline.emitKeypressEvents(process.stdin);
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+
+  let selectedIndex = 0;
+  let message = "";
+
+  const refresh = () => {
+    renderAuthTuiScreen({ codex, selectedIndex, message });
+  };
+
+  const cleanup = () => {
+    try {
+      process.stdin.setRawMode(false);
+    } catch (_) {
+      // ignore
+    }
+    process.stdin.pause();
+    process.stdin.removeListener("keypress", onKeypress);
+    process.stdout.write("\n");
+  };
+
+  const updateCodexStatus = () => {
+    try {
+      codex = getCodexStatus();
+    } catch (_) {
+      // ignore
+    }
+  };
+
+  const onKeypress = (_str, key) => {
+    if (!key) {
+      return;
+    }
+
+    if (key.name === "escape") {
+      cleanup();
+      return;
+    }
+
+    if (key.name === "up") {
+      selectedIndex = Math.max(0, selectedIndex - 1);
+      message = "";
+      refresh();
+      return;
+    }
+
+    if (key.name === "down") {
+      selectedIndex = Math.min(1, selectedIndex + 1);
+      message = "";
+      refresh();
+      return;
+    }
+
+    if (key.name === "return" || key.name === "enter") {
+      if (selectedIndex === 1) {
+        cleanup();
+        return;
+      }
+
+      if (!codex.loggedIn) {
+        message = "codex is already logged out.";
+        refresh();
+        return;
+      }
+
+      try {
+        message = "Logging out...";
+        refresh();
+        const result = runCodex(["logout"], { stdio: "inherit" });
+        if (result.status !== 0) {
+          message = "Codex logout failed.";
+        } else {
+          message = "Codex logout OK.";
+        }
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error);
+      }
+
+      updateCodexStatus();
+      refresh();
+      return;
+    }
+  };
+
+  process.stdin.on("keypress", onKeypress);
+  refresh();
+}
+
+function runAuth(argv) {
+  const options = parseAuthOptions(argv);
+  if (options.help) {
+    printAuthHelp();
+    return;
+  }
+
+  const codex = getCodexStatus();
+
+  if (options.json) {
+    console.log(
+      JSON.stringify(
+        {
+          codex: {
+            available: codex.available,
+            logged_in: codex.loggedIn,
+            detail: codex.detail
+          }
+        },
+        null,
+        2
+      )
+    );
+    return;
+  }
+
+  if (options.plain) {
+    renderAuthPlain({ codex });
+    return;
+  }
+
+  runAuthTui({ codex });
+}
+
 function runStatus(argv) {
   const options = parseStatusLikeOptions(argv);
   if (options.help) {
@@ -1231,6 +1445,10 @@ async function main() {
   }
   if (command === "logout") {
     runLogout(rest);
+    return;
+  }
+  if (command === "auth") {
+    runAuth(rest);
     return;
   }
   if (command === "update") {
