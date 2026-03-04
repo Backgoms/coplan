@@ -4,6 +4,7 @@ dist/
 Thumbs.db
 *.log
 logs/
+nul
 .env
 .env.*
 !.env.example
