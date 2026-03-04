@@ -80,6 +80,8 @@ npm run login
 npm run logout
 ```
 
+Claude Code에서는 `/user:coplan-auth`로 Codex 로그인 상태(ok/off)를 빠르게 확인하고, 필요하면 로그아웃할 수 있습니다.
+
 위 명령은 `coplan login --provider chatgpt`와 동일합니다.
 
 
@@ -135,6 +137,7 @@ npm run uninstall:claude
 ```text
 /user:coplan redis 캐시 레이어 구현
 /user:coplan-status
+/user:coplan-auth
 /user:coplan-login
 /user:coplan-logout
 /user:coplan-update

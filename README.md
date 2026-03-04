@@ -86,6 +86,8 @@ Logout (clears coplan local state only):
 npm run logout
 ```
 
+In Claude Code, you can also use `/user:coplan-auth` to quickly see Codex login state and log out.
+
 Direct CLI variants:
 
 ```bash
@@ -139,6 +141,7 @@ Claude Code slash commands:
 
 - `/user:coplan <task>`: generate plan + Codex review
 - `/user:coplan-status`: run `npm run doctor` and summarize setup/runtime state
+- `/user:coplan-auth`: auth settings (shows Codex login ok/off; can log out)
 - `/user:coplan-login`: run `coplan login` (Codex/ChatGPT login)
 - `/user:coplan-logout`: run `coplan logout --codex` (clears coplan state + logs out of Codex)
 - `/user:coplan-update`: run `coplan update --apply` (fast-forward this git clone)
