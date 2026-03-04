@@ -141,6 +141,7 @@ Claude Code slash commands:
 - `/user:coplan-status`: run `npm run doctor` and summarize setup/runtime state
 - `/user:coplan-login`: run `coplan login` (Codex/ChatGPT login)
 - `/user:coplan-logout`: run `coplan logout --codex` (clears coplan state + logs out of Codex)
+- `/user:coplan-update`: run `coplan update --apply` (fast-forward this git clone)
 
 ## MCP Tool Contract
 

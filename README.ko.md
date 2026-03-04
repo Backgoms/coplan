@@ -137,6 +137,7 @@ npm run uninstall:claude
 /user:coplan-status
 /user:coplan-login
 /user:coplan-logout
+/user:coplan-update
 ```
 
 출력 섹션:
