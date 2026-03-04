@@ -1,0 +1,19 @@
+{
+  "name": "@coplan/coplan-mcp",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "index.js",
+  "description": "MCP server exposing Codex plan review tool",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "files": [
+    "index.js",
+    "src/"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "cross-spawn": "^7.0.6",
+    "zod": "^3.24.1"
+  }
+}

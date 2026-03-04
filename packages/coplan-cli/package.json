@@ -1,0 +1,15 @@
+{
+  "name": "coplan-cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "coplan": "./bin/coplan.js"
+  },
+  "files": [
+    "bin/"
+  ],
+  "dependencies": {
+    "@coplan/coplan-auth": "file:../coplan-auth",
+    "cross-spawn": "^7.0.6"
+  }
+}

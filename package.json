@@ -1,0 +1,24 @@
+{
+  "name": "coplan",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Claude Code /coplan auto plan validator with Codex review",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "check": "node --check packages/coplan-cli/bin/coplan.js && node --check packages/coplan-auth/server.js && node --check packages/coplan-mcp/index.js && node --check packages/coplan-mcp/src/server.js && node --check packages/coplan-mcp/src/codexClient.js",
+    "test": "npm run check",
+    "start:mcp": "node packages/coplan-mcp/index.js",
+    "start:auth": "node packages/coplan-auth/server.js",
+    "login": "node packages/coplan-cli/bin/coplan.js login --provider chatgpt",
+    "login:chatgpt": "node packages/coplan-cli/bin/coplan.js login --provider chatgpt",
+    "login:openai": "node packages/coplan-cli/bin/coplan.js login --provider openai",
+    "status": "node packages/coplan-cli/bin/coplan.js status",
+    "doctor": "node packages/coplan-cli/bin/coplan.js doctor",
+    "setup": "node packages/coplan-cli/bin/coplan.js setup --scope user --provider chatgpt",
+    "install:claude": "node packages/coplan-cli/bin/coplan.js install --scope user",
+    "uninstall:claude": "node packages/coplan-cli/bin/coplan.js uninstall --scope user"
+  },
+  "license": "MIT"
+}

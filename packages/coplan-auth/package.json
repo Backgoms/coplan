@@ -1,0 +1,17 @@
+{
+  "name": "@coplan/coplan-auth",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "server.js",
+  "exports": {
+    ".": "./server.js",
+    "./server": "./server.js"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "files": [
+    "server.js",
+    "public/"
+  ]
+}
