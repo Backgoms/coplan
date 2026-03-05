@@ -1,15 +1,25 @@
 # coplan
 
-Auto-validated plan workflow for Claude Code slash commands.
+`coplan` adds a Claude Code slash command that turns your request into a structured implementation plan, gets a Codex critique via MCP, and returns a revised final plan.
 
-## Quickstart (GitHub)
+## Before You Use
 
-Prereqs:
+Requirements:
 
-- Node.js 20+ (LTS recommended)
-- npm
+- Git
+- Node.js 20+ (LTS recommended) + npm
+- Claude Code + Claude CLI (`claude` in PATH)
+- Codex CLI (`codex` in PATH)
+- ChatGPT plan that includes Codex (Plus/Pro/Business/Edu/Enterprise). Free plans are not a safe assumption.
 
-Clone and install:
+Local files created:
+
+- `~/.coplan/auth.json` (local auth metadata; do not commit)
+- `~/.claude/commands/` (installed slash command templates)
+
+## Quickstart
+
+Clone:
 
 ```bash
 git clone https://github.com/Backgoms/coplan.git
@@ -17,156 +27,63 @@ cd coplan
 npm install
 ```
 
-Claude Code integration (installs slash commands + registers MCP):
+Install slash commands + register MCP + login:
 
 ```bash
 npm run setup
 ```
 
-Then in Claude Code:
+Open Claude Code and run:
 
 ```text
 /user:coplan <your task>
-/user:coplan-status
 ```
 
-## What It Does
+## How It Works
 
-`/coplan <task>` creates a draft plan in Claude Code, sends it to Codex for critique through MCP, then returns a revised final plan.
+When you run `/user:coplan <task>`:
 
-Pipeline:
+1. Claude generates a Draft Plan
+2. Claude generates a short Plan Summary
+3. MCP tool `codex_plan_review` sends the draft plan to Codex for critique
+4. Claude revises the plan and returns the Final Plan
 
-1. Draft Plan (Claude)
-2. Plan Summary (Claude)
-3. `codex_plan_review` critique (MCP -> Codex)
-4. Final Plan (Claude, revised with critique)
+## Usage (Claude Code)
 
-## Repository Layout
+- `/user:coplan <task>`: generate plan + Codex critique + final plan
+- `/user:coplan-status`: check setup/runtime state and suggest fixes
+- `/user:coplan-login`: start Codex/ChatGPT login (opens browser if needed)
+- `/user:coplan-logout`: log out of Codex and clear local coplan state
+- `/user:coplan-update`: fast-forward update this git clone (safe `git pull --ff-only`)
 
-- `docs/`: architecture, security, and diagram docs
-- `.claude/commands/coplan.md`: slash command prompt template
-- `packages/coplan-mcp/`: MCP server exposing `codex_plan_review`
-- `packages/coplan-auth/`: local auth web server (`127.0.0.1:8719`)
-- `packages/coplan-cli/`: `coplan` CLI (`coplan login`)
+## Updating
 
-## Setup
+Update the git clone:
 
-Security note:
+```bash
+git pull --ff-only
+```
 
-- Do not commit local auth state. `~/.coplan/auth.json` is a user-local file.
-- This repo also ignores `.coplan/` (workspace-local) via `.gitignore`.
-
-2. Install into Claude Code (slash command + MCP registration):
+If slash commands were changed/added in the repo, re-install them:
 
 ```bash
 npm run install:claude
 ```
 
-If you want a one-command setup, use:
+Notes:
 
-```bash
-npm run setup
-```
+- `/user:coplan-update` runs `coplan update --apply` which only fast-forwards when the working tree is clean.
+- The MCP server also attempts a safe fast-forward update on startup by default; set `COPLAN_MCP_AUTO_UPDATE=0` to disable.
 
-This installs:
+## Troubleshooting
 
-- `~/.claude/commands/coplan.md`
-- `~/.claude/commands/coplan-status.md`
-- MCP server registration named `coplan` (user scope)
+- Slash commands not found: run `npm run install:claude` then restart Claude Code
+- Login UI does not open: you are probably already logged in; use `/user:coplan-logout` then `/user:coplan-login`
+- Auto-update skipped: ensure the repo working tree is clean (`git status`) then re-run `/user:coplan-update`
 
-3. Run auth flow once (default: ChatGPT sign-in via Codex CLI):
+## Repository Layout
 
-```bash
-npm run login
-```
-
-Logout (clears coplan local state only):
-
-```bash
-npm run logout
-```
-
-In Claude Code, you can also use `/user:coplan-auth` to quickly see Codex login state and log out.
-
-Direct CLI variants:
-
-```bash
-node packages/coplan-cli/bin/coplan.js login --provider chatgpt
-```
-
-4. One-shot setup for new users:
-
-```bash
-npm run setup
-```
-
-5. Check auth/provider status:
-
-```bash
-npm run status
-```
-
-JSON output:
-
-```bash
-node packages/coplan-cli/bin/coplan.js status --json
-```
-
-6. Run diagnostics:
-
-```bash
-npm run doctor
-```
-
-7. (Optional) Start MCP server manually:
-
-```bash
-npm run start:mcp
-```
-
-8. (Optional) Uninstall from Claude Code:
-
-```bash
-npm run uninstall:claude
-```
-
-Legacy plain-key browser mode (`--allow-plain-key-storage`) opens `http://127.0.0.1:8719`.
-
-- Windows: `%USERPROFILE%\\.coplan\\auth.json`
-- Linux/macOS: `~/.coplan/auth.json`
-
-## Claude Commands
-
-Claude Code slash commands:
-
-- `/user:coplan <task>`: generate plan + Codex review
-- `/user:coplan-status`: run `npm run doctor` and summarize setup/runtime state
-- `/user:coplan-auth`: auth settings (shows Codex login ok/off; can log out)
-- `/user:coplan-login`: run `coplan login` (Codex/ChatGPT login)
-- `/user:coplan-logout`: run `coplan logout --codex` (clears coplan state + logs out of Codex)
-- `/user:coplan-update`: run `coplan update --apply` (fast-forward this git clone)
-
-## MCP Tool Contract
-
-Tool: `codex_plan_review`
-
-Input:
-
-```json
-{
-  "plan": "string",
-  "rubric": "string (optional)"
-}
-```
-
-Output:
-
-```json
-{
-  "score": 0,
-  "issues": [],
-  "missing_steps": [],
-  "improvements": [],
-  "questions": []
-}
-```
+- `.claude/commands/`: slash command templates installed into `~/.claude/commands/`
+- `packages/coplan-cli/`: CLI used by setup/login/status
+- `packages/coplan-mcp/`: MCP server exposing `codex_plan_review`
+- `packages/coplan-auth/`: legacy local auth web server (`127.0.0.1:8719`)
