@@ -36,12 +36,14 @@ npm run setup
 Claude Code에서 실행:
 
 ```text
-/user:coplan <작업>
+/coplan <작업>
 ```
+
+팁: Claude Code 버전에 따라 호출 방식이 다를 수 있습니다. 가장 안전한 방법은 `/`를 입력한 뒤 자동완성 목록에서 `coplan`을 선택하는 것입니다. 수동 입력이 필요하면 `/coplan`과 `/user:coplan`을 모두 시도하세요.
 
 ## 작동 구조
 
-`/user:coplan <작업>` 실행 시:
+`/coplan <작업>` 실행 시:
 
 1. Claude가 Draft Plan 생성
 2. Claude가 Plan Summary(짧은 요약) 생성
@@ -50,36 +52,45 @@ Claude Code에서 실행:
 
 ## 사용 방법 (Claude Code)
 
-- `/user:coplan <작업>`: 계획 생성 + Codex 검토 + 최종 계획
-- `/user:coplan-status`: 현재 설정/상태 점검 및 해결 방법 안내
-- `/user:coplan-login`: Codex/ChatGPT 로그인 시작(필요시 브라우저 열림)
-- `/user:coplan-logout`: Codex 로그아웃 + coplan 로컬 상태 초기화
-- `/user:coplan-update`: 이 git 클론을 안전하게 업데이트(`git pull --ff-only`)
+자동완성에 표시되는 이름을 사용하세요(버전에 따라 `/` 또는 `/user:` 접두사가 붙을 수 있음):
+
+- `coplan <작업>`: 계획 생성 + Codex 검토 + 최종 계획
+- `coplan-status`: 현재 설정/상태 점검 및 해결 방법 안내
+- `coplan-login`: Codex/ChatGPT 로그인 시작(필요시 브라우저 열림)
+- `coplan-logout`: Codex 로그아웃 + coplan 로컬 상태 초기화
+- `coplan-update`: 이 git 클론을 안전하게 업데이트(`git pull --ff-only`)
 
 ## 업데이트
 
-코드 최신화:
+매번 수동으로 `git pull`을 할 필요는 없습니다.
+
+자동으로 일어나는 것:
+
+- Claude Code가 `coplan` MCP 서버에 연결하려고 서버 프로세스를 시작할 때,
+  - git 클론에 `origin`이 있고
+  - 작업트리가 깨끗하면
+  안전한 fast-forward 업데이트(`git fetch` + `git pull --ff-only`)를 시도합니다.
+
+수동 업데이트 방법:
+
+- Claude Code에서: `coplan-update`
+- 터미널에서:
 
 ```bash
-git pull --ff-only
+npm run update
 ```
 
-슬래시 커맨드 템플릿이 변경/추가되었다면 재설치:
+`npm run install:claude`를 다시 해야 하는 경우:
 
-```bash
-npm run install:claude
-```
-
-참고:
-
-- `/user:coplan-update`는 `coplan update --apply`를 실행하며, 작업트리가 깨끗할 때만 fast-forward 업데이트합니다.
-- MCP 서버는 기본적으로 시작 시 안전한 fast-forward 업데이트를 시도합니다. 끄려면 `COPLAN_MCP_AUTO_UPDATE=0`을 설정하세요.
+- 슬래시 커맨드 템플릿이 변경/추가된 경우(새 커맨드 추가, 프롬프트 변경 등)
+- MCP/CLI 로직만 바뀐 업데이트라면 보통 생략 가능합니다.
 
 ## 문제 해결
 
 - 슬래시 커맨드가 안 보임: `npm run install:claude` 실행 후 Claude Code 재시작
-- 로그인창이 안 뜸: 이미 로그인 상태일 수 있음. `/user:coplan-logout` 후 `/user:coplan-login`
-- 업데이트가 스킵됨: `git status`로 작업트리 깨끗한지 확인 후 `/user:coplan-update`
+- 로그인창이 안 뜸: 이미 로그인 상태일 수 있음. `coplan-logout` 후 `coplan-login`
+- 업데이트가 스킵됨: `git status`로 작업트리 깨끗한지 확인 후 `coplan-update`
+- 업데이트 후 이상함: `npm install` 실행(의존성이 바뀌었을 수 있음)
 
 ## 폴더 구조
 

@@ -36,8 +36,10 @@ npm run setup
 Open Claude Code and run:
 
 ```text
-/user:coplan <your task>
+/coplan <your task>
 ```
+
+Tip: Claude Code command invocation can vary by version. The safest way is to type `/` and pick `coplan` from autocomplete. If manual typing is required, try both `/coplan` and `/user:coplan`.
 
 ## How It Works
 
@@ -50,36 +52,45 @@ When you run `/user:coplan <task>`:
 
 ## Usage (Claude Code)
 
-- `/user:coplan <task>`: generate plan + Codex critique + final plan
-- `/user:coplan-status`: check setup/runtime state and suggest fixes
-- `/user:coplan-login`: start Codex/ChatGPT login (opens browser if needed)
-- `/user:coplan-logout`: log out of Codex and clear local coplan state
-- `/user:coplan-update`: fast-forward update this git clone (safe `git pull --ff-only`)
+Use the names shown in autocomplete (prefix may be `/` or `/user:` depending on version):
+
+- `coplan <task>`: generate plan + Codex critique + final plan
+- `coplan-status`: check setup/runtime state and suggest fixes
+- `coplan-login`: start Codex/ChatGPT login (opens browser if needed)
+- `coplan-logout`: log out of Codex and clear local coplan state
+- `coplan-update`: fast-forward update this git clone (safe `git pull --ff-only`)
 
 ## Updating
 
-Update the git clone:
+You do NOT need to manually run `git pull` every time.
+
+What happens automatically:
+
+- When Claude Code connects to the `coplan` MCP server, it starts a local server process.
+- On startup, the MCP server attempts a safe fast-forward update (`git fetch` + `git pull --ff-only`) if:
+  - this is a git clone with `origin`
+  - the working tree is clean
+
+Manual update options:
+
+- In Claude Code: run `coplan-update`
+- In terminal:
 
 ```bash
-git pull --ff-only
+npm run update
 ```
 
-If slash commands were changed/added in the repo, re-install them:
+When you DO need `npm run install:claude` again:
 
-```bash
-npm run install:claude
-```
-
-Notes:
-
-- `/user:coplan-update` runs `coplan update --apply` which only fast-forwards when the working tree is clean.
-- The MCP server also attempts a safe fast-forward update on startup by default; set `COPLAN_MCP_AUTO_UPDATE=0` to disable.
+- Only if slash command templates changed/added in the repo (new commands, prompt text changes).
+- If you only pulled code changes (MCP/CLI logic), you can usually skip it.
 
 ## Troubleshooting
 
 - Slash commands not found: run `npm run install:claude` then restart Claude Code
 - Login UI does not open: you are probably already logged in; use `/user:coplan-logout` then `/user:coplan-login`
 - Auto-update skipped: ensure the repo working tree is clean (`git status`) then re-run `/user:coplan-update`
+ - After updating, things look broken: run `npm install` (dependencies may have changed)
 
 ## Repository Layout
 
