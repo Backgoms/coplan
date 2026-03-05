@@ -83,7 +83,7 @@ npm run update
 When you DO need `npm run install:claude` again:
 
 - Only if slash command templates changed/added in the repo (new commands, prompt text changes).
-- If you only pulled code changes (MCP/CLI logic), you can usually skip it.
+- If you only updated code (MCP/CLI logic), you can usually skip it.
 
 ## Troubleshooting
 
