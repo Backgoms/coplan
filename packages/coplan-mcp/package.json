@@ -12,6 +12,7 @@
     "src/"
   ],
   "dependencies": {
+    "@coplan/coplan-auth": "file:../coplan-auth",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "cross-spawn": "^7.0.6",
     "zod": "^3.24.1"
