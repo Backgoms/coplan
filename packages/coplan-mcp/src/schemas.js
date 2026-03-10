@@ -10,7 +10,15 @@ export const planReviewOutputSchema = z.object({
   issues: z.array(z.string()),
   missing_steps: z.array(z.string()),
   improvements: z.array(z.string()),
-  questions: z.array(z.string())
+  questions: z.array(z.string()),
+  usage: z
+    .object({
+      input_tokens: z.number().int().nonnegative().optional(),
+      output_tokens: z.number().int().nonnegative().optional(),
+      total_tokens: z.number().int().nonnegative().optional()
+    })
+    .passthrough()
+    .optional()
 });
 
 export function normalizeReview(review) {
@@ -20,7 +28,7 @@ export function normalizeReview(review) {
     issues: parsed.issues,
     missing_steps: parsed.missing_steps,
     improvements: parsed.improvements,
-    questions: parsed.questions
+    questions: parsed.questions,
+    ...(parsed.usage ? { usage: parsed.usage } : {})
   };
 }
-

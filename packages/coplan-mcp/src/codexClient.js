@@ -1,12 +1,16 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import crypto from "node:crypto";
 import spawn from "cross-spawn";
 import { readAuth } from "./authStore.js";
+import { getCodexApiModel, getCodexCliModel, getCodexCliReasoningEffort, readConfig } from "./configStore.js";
 import { normalizeReview } from "./schemas.js";
+import { appendUsageEvent } from "./usageStore.js";
 
-const DEFAULT_API_MODEL = process.env.COPLAN_CODEX_MODEL || "gpt-5";
-const DEFAULT_CLI_MODEL = process.env.COPLAN_CODEX_CLI_MODEL || process.env.COPLAN_CODEX_MODEL || "";
+const ENV_API_MODEL = process.env.COPLAN_CODEX_MODEL || "";
+const ENV_CLI_MODEL = process.env.COPLAN_CODEX_CLI_MODEL || process.env.COPLAN_CODEX_MODEL || "";
+const ENV_CLI_EFFORT = process.env.COPLAN_CODEX_CLI_REASONING_EFFORT || "";
 const API_URL = "https://api.openai.com/v1/responses";
 const DEFAULT_RUBRIC = [
   "completeness",
@@ -30,6 +34,34 @@ const REVIEW_SCHEMA = {
     questions: { type: "array", items: { type: "string" } }
   }
 };
+
+function resolveApiModel() {
+  const env = ENV_API_MODEL.trim();
+  if (env) {
+    return env;
+  }
+  const cfg = readConfig();
+  const fromCfg = getCodexApiModel(cfg);
+  return fromCfg || "gpt-5";
+}
+
+function resolveCliModel() {
+  const env = ENV_CLI_MODEL.trim();
+  if (env) {
+    return env;
+  }
+  const cfg = readConfig();
+  return getCodexCliModel(cfg);
+}
+
+function resolveCliReasoningEffort() {
+  const env = ENV_CLI_EFFORT.trim();
+  if (env) {
+    return env;
+  }
+  const cfg = readConfig();
+  return getCodexCliReasoningEffort(cfg);
+}
 
 function getCodexCommand() {
   return process.platform === "win32" ? "codex.cmd" : "codex";
@@ -167,6 +199,29 @@ function parseReviewFromText(text) {
   throw new Error("Codex response did not contain a valid review JSON object.");
 }
 
+function extractUsageFromCodexCliJsonl(text) {
+  if (typeof text !== "string" || !text.trim()) {
+    return undefined;
+  }
+  const lines = text.split(/\r?\n/);
+  let lastUsage;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed[0] !== "{") {
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && parsed.type === "turn.completed" && parsed.usage && typeof parsed.usage === "object") {
+        lastUsage = parsed.usage;
+      }
+    } catch (_) {
+      // ignore non-JSON lines
+    }
+  }
+  return lastUsage;
+}
+
 function extractResponsesText(responseJson) {
   if (typeof responseJson.output_text === "string" && responseJson.output_text.trim()) {
     return responseJson.output_text.trim();
@@ -190,6 +245,25 @@ function extractResponsesText(responseJson) {
   }
 
   return chunks.join("\n").trim();
+}
+
+function extractUsageFromResponsesApi(responseJson) {
+  const usage = responseJson && typeof responseJson === "object" ? responseJson.usage : null;
+  if (!usage || typeof usage !== "object") {
+    return undefined;
+  }
+
+  // Keep the full usage object (passthrough schema), but these are the core fields we expect.
+  const input_tokens = Number.isFinite(usage.input_tokens) ? usage.input_tokens : undefined;
+  const output_tokens = Number.isFinite(usage.output_tokens) ? usage.output_tokens : undefined;
+  const total_tokens = Number.isFinite(usage.total_tokens) ? usage.total_tokens : undefined;
+
+  return {
+    ...usage,
+    ...(input_tokens !== undefined ? { input_tokens } : {}),
+    ...(output_tokens !== undefined ? { output_tokens } : {}),
+    ...(total_tokens !== undefined ? { total_tokens } : {})
+  };
 }
 
 function getCodexCliLoginStatus() {
@@ -228,6 +302,7 @@ function reviewViaCodexCli({ plan, rubric }) {
     const prompt = buildPrompt(plan, rubric);
     const args = [
       "exec",
+      "--json",
       "--skip-git-repo-check",
       "--sandbox",
       "read-only",
@@ -237,13 +312,30 @@ function reviewViaCodexCli({ plan, rubric }) {
       outputPath
     ];
 
-    if (DEFAULT_CLI_MODEL) {
-      args.push("--model", DEFAULT_CLI_MODEL);
+    const cliModel = resolveCliModel();
+    if (cliModel) {
+      args.push("--model", cliModel);
+    }
+
+    const cliEffort = resolveCliReasoningEffort();
+    if (cliEffort) {
+      args.push("--config", `model_reasoning_effort=\"${cliEffort}\"`);
     }
     // Pass prompt through stdin to avoid Windows shell argument splitting.
     args.push("-");
 
-    const result = runCodex(args, { input: prompt });
+    let result = runCodex(args, { input: prompt });
+
+    // Backward-compat: older Codex CLI versions may not support --json.
+    // If the exec fails due to an unknown option, retry without --json.
+    if (result.status !== 0) {
+      const combined = `${result.stderr || ""}\n${result.stdout || ""}`.toLowerCase();
+      const looksLikeUnknownOption = combined.includes("unknown option") || combined.includes("unknown flag");
+      if (looksLikeUnknownOption && combined.includes("--json")) {
+        const retryArgs = args.filter((item) => item !== "--json");
+        result = runCodex(retryArgs, { input: prompt });
+      }
+    }
 
     let outputText = "";
     if (fs.existsSync(outputPath)) {
@@ -258,7 +350,17 @@ function reviewViaCodexCli({ plan, rubric }) {
       throw new Error(`Codex CLI exec failed: ${errText || "unknown error"}`);
     }
 
-    return parseReviewFromText(outputText);
+    const review = parseReviewFromText(outputText);
+    const usage = extractUsageFromCodexCliJsonl(`${result.stdout || ""}\n${result.stderr || ""}`);
+    const resultReview = usage ? { ...review, usage } : review;
+    recordUsageEvent({
+      provider: "chatgpt",
+      model: cliModel || "codex-cli-default",
+      reasoning_effort: cliEffort || undefined,
+      usage: resultReview.usage,
+      plan
+    });
+    return resultReview;
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
@@ -266,6 +368,7 @@ function reviewViaCodexCli({ plan, rubric }) {
 
 async function reviewViaOpenAiApi({ plan, rubric, token }) {
   const prompt = buildPrompt(plan, rubric);
+  const apiModel = resolveApiModel();
 
   const response = await fetch(API_URL, {
     method: "POST",
@@ -274,7 +377,7 @@ async function reviewViaOpenAiApi({ plan, rubric, token }) {
       Authorization: `Bearer ${token}`
     },
     body: JSON.stringify({
-      model: DEFAULT_API_MODEL,
+      model: apiModel,
       input: [
         {
           role: "user",
@@ -296,7 +399,11 @@ async function reviewViaOpenAiApi({ plan, rubric, token }) {
 
   const responseJson = await response.json();
   const text = extractResponsesText(responseJson);
-  return parseReviewFromText(text);
+  const review = parseReviewFromText(text);
+  const usage = extractUsageFromResponsesApi(responseJson);
+  const resultReview = usage ? { ...review, usage } : review;
+  recordUsageEvent({ provider: "openai", model: apiModel, usage: resultReview.usage, plan });
+  return resultReview;
 }
 
 function resolveProvider(auth) {
@@ -313,6 +420,65 @@ function resolveProvider(auth) {
     return "openai";
   }
   return "chatgpt";
+}
+
+function normalizeUsageForEvent(usage) {
+  if (!usage || typeof usage !== "object") {
+    return null;
+  }
+  const input = Number.isFinite(usage.input_tokens) ? usage.input_tokens : undefined;
+  const output = Number.isFinite(usage.output_tokens) ? usage.output_tokens : undefined;
+  const total = Number.isFinite(usage.total_tokens)
+    ? usage.total_tokens
+    : input !== undefined && output !== undefined
+      ? input + output
+      : undefined;
+  const cachedInput = Number.isFinite(usage.cached_input_tokens) ? usage.cached_input_tokens : undefined;
+
+  return {
+    ...(input !== undefined ? { input_tokens: input } : {}),
+    ...(output !== undefined ? { output_tokens: output } : {}),
+    ...(total !== undefined ? { total_tokens: total } : {}),
+    ...(cachedInput !== undefined ? { cached_input_tokens: cachedInput } : {})
+  };
+}
+
+function recordUsageEvent({ provider, model, reasoning_effort, usage, plan }) {
+  const normalized = normalizeUsageForEvent(usage);
+
+  const logPreview = String(process.env.COPLAN_LOG_PLAN_PREVIEW || "").trim() === "1";
+  const planText = typeof plan === "string" ? plan : "";
+  const planChars = planText ? planText.length : undefined;
+  const planHash = planText
+    ? crypto.createHash("sha256").update(planText, "utf8").digest("hex").slice(0, 12)
+    : undefined;
+  const planPreview =
+    logPreview && planText
+      ? planText
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 160)
+      : undefined;
+  const request = {
+    ...(planChars !== undefined ? { plan_chars: planChars } : {}),
+    ...(planHash ? { plan_sha256_12: planHash } : {}),
+    ...(planPreview ? { plan_preview: planPreview } : {})
+  };
+
+  try {
+    appendUsageEvent({
+      schema_version: 1,
+      ts: new Date().toISOString(),
+      tool: "codex_plan_review",
+      provider,
+      ...(model ? { model } : {}),
+      ...(reasoning_effort ? { reasoning_effort } : {}),
+      ...(Object.keys(request).length ? { request } : {}),
+      ...(normalized ? normalized : {})
+    });
+  } catch (_) {
+    // Best-effort only: token logging must never break plan review.
+  }
 }
 
 export async function reviewPlanWithCodex({ plan, rubric }) {
