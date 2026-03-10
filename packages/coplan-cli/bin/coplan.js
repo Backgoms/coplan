@@ -14,6 +14,7 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
 const COMMANDS_TEMPLATE_DIR = path.join(REPO_ROOT, ".claude", "commands");
 const COMMAND_FILE_NAMES = [
   "coplan.md",
+  "coplan-model.md",
   "coplan-status.md",
   "coplan-login.md",
   "coplan-logout.md",
@@ -37,12 +38,47 @@ function printHelp() {
   console.log("  coplan setup [--scope user|project|local] [--provider chatgpt|openai] [--dry-run]");
   console.log("  coplan doctor [--json]");
   console.log("  coplan login [--provider chatgpt|openai] [--allow-plain-key-storage]");
+  console.log("  coplan usage");
   console.log("  coplan logout [--codex]");
   console.log("  coplan update [--apply]");
   console.log("  coplan mcp [--auto-update]");
   console.log("  coplan status [--json]");
   console.log("  coplan install [--scope user|project|local] [--dry-run]");
   console.log("  coplan uninstall [--scope user|project|local] [--dry-run]");
+}
+
+async function runUsage(_argv) {
+  const url = "http://127.0.0.1:8719/dashboard/usage";
+  let auth;
+  try {
+    auth = await startAuthServer({ host: "127.0.0.1", port: 8719 });
+    console.log(`coplan usage dashboard started: ${url}`);
+  } catch (error) {
+    const code = error && typeof error === "object" ? error.code : null;
+    if (code === "EADDRINUSE") {
+      console.log(`coplan usage dashboard already running: ${url}`);
+    } else {
+      throw error;
+    }
+  }
+
+  console.log("Press Ctrl+C to stop.");
+
+  try {
+    openBrowser(url);
+  } catch (_) {
+    console.log(`Open this URL manually: ${url}`);
+  }
+
+  if (auth) {
+    const shutdown = async () => {
+      await auth.close();
+      process.exit(0);
+    };
+
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+  }
 }
 
 function printLoginHelp() {
@@ -862,24 +898,37 @@ function removeMcpServer({ scope, dryRun, ignoreMissing = false }) {
 }
 
 async function runOpenAiLoginPlaintextServer() {
-  const auth = await startAuthServer({ host: "127.0.0.1", port: 8719 });
-  console.log(`coplan login server started: ${auth.url}`);
+  const url = "http://127.0.0.1:8719";
+  let auth;
+  try {
+    auth = await startAuthServer({ host: "127.0.0.1", port: 8719 });
+    console.log(`coplan login server started: ${auth.url}`);
+  } catch (error) {
+    const code = error && typeof error === "object" ? error.code : null;
+    if (code === "EADDRINUSE") {
+      console.log(`coplan login server already running: ${url}`);
+    } else {
+      throw error;
+    }
+  }
   console.log("Paste your OpenAI API key in the browser.");
   console.log("Press Ctrl+C to stop.");
 
   try {
-    openBrowser(auth.url);
+    openBrowser(url);
   } catch (_) {
-    console.log(`Open this URL manually: ${auth.url}`);
+    console.log(`Open this URL manually: ${url}`);
   }
 
-  const shutdown = async () => {
-    await auth.close();
-    process.exit(0);
-  };
+  if (auth) {
+    const shutdown = async () => {
+      await auth.close();
+      process.exit(0);
+    };
 
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+  }
 }
 
 function printOpenAiEnvGuide() {
@@ -1227,6 +1276,10 @@ async function main() {
   }
   if (command === "login") {
     await runLogin(rest);
+    return;
+  }
+  if (command === "usage") {
+    await runUsage(rest);
     return;
   }
   if (command === "logout") {
