@@ -48,17 +48,57 @@ When you run `/user:coplan <task>`:
 1. Claude generates a Draft Plan
 2. Claude generates a short Plan Summary
 3. MCP tool `codex_plan_review` sends the draft plan to Codex for critique
-4. Claude revises the plan and returns the Final Plan
+4. Claude revises the plan and returns the Final Plan, including a short "Codex Findings -> Plan Changes" section (key findings + what changed)
+
+Note: the MCP tool response may include an optional `usage` object (token counts) depending on provider support (OpenAI API, and Codex CLI if it supports JSON events). The plan template can surface this as a single human-readable "Usage" line.
 
 ## Usage (Claude Code)
 
 Use the names shown in autocomplete (prefix may be `/` or `/user:` depending on version):
 
 - `coplan <task>`: generate plan + Codex critique + final plan
+- `coplan-model [model] [effort]`: select Codex CLI model + reasoning effort for future `/coplan` runs
 - `coplan-status`: check setup/runtime state and suggest fixes
 - `coplan-login`: start Codex/ChatGPT login (opens browser if needed)
 - `coplan-logout`: log out of Codex and clear local coplan state
 - `coplan-update`: fast-forward update this git clone (safe `git pull --ff-only`)
+
+## Usage (CLI)
+
+- `coplan usage`: start local usage dashboard at `http://127.0.0.1:8719/dashboard/usage`
+
+The dashboard shows token usage totals and a request history for `codex_plan_review` (by default it stores only counts + a short request hash/size; no plan text).
+
+## Dashboard Auto-Open (Config)
+
+By default, when the MCP server starts it will also start the local dashboard server and auto-open the dashboard in your browser.
+
+To configure, create/edit:
+
+- macOS/Linux: `~/.coplan/config.json`
+- Windows: `%USERPROFILE%\\.coplan\\config.json`
+
+Example:
+
+```json
+{
+  "dashboard": {
+    "auto_open": true
+  }
+}
+```
+
+Disable auto-open:
+
+```json
+{
+  "dashboard": {
+    "auto_open": false
+  }
+}
+```
+
+Override via env (takes priority over JSON): `COPLAN_DASHBOARD_AUTO_OPEN=0`.
 
 ## Updating
 

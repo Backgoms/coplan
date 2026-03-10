@@ -48,17 +48,57 @@ Claude Code에서 실행:
 1. Claude가 Draft Plan 생성
 2. Claude가 Plan Summary(짧은 요약) 생성
 3. MCP 도구 `codex_plan_review`가 Codex에 계획 검토 요청
-4. Codex 피드백을 반영해 Final Plan 반환
+4. Codex 피드백을 반영해 Final Plan 반환(또한 "Codex Findings -> Plan Changes" 섹션에 검토 요점과 반영 내역을 기록)
+
+참고: provider 지원 여부에 따라 MCP 도구 응답에 `usage`(토큰 사용량) 정보가 포함될 수 있습니다(OpenAI API, 그리고 JSON 이벤트를 지원하는 Codex CLI). 플랜 템플릿에서 이를 사람이 읽기 쉬운 한 줄(Usage)로도 표기할 수 있습니다.
 
 ## 사용 방법 (Claude Code)
 
 자동완성에 표시되는 이름을 사용하세요(버전에 따라 `/` 또는 `/user:` 접두사가 붙을 수 있음):
 
 - `coplan <작업>`: 계획 생성 + Codex 검토 + 최종 계획
+- `coplan-model [model] [effort]`: 이후 `/coplan` 실행에 사용할 Codex CLI 모델/effort 선택
 - `coplan-status`: 현재 설정/상태 점검 및 해결 방법 안내
 - `coplan-login`: Codex/ChatGPT 로그인 시작(필요시 브라우저 열림)
 - `coplan-logout`: Codex 로그아웃 + coplan 로컬 상태 초기화
 - `coplan-update`: 이 git 클론을 안전하게 업데이트(`git pull --ff-only`)
+
+## 사용 방법 (CLI)
+
+- `coplan usage`: 로컬 사용량 대시보드 실행 `http://127.0.0.1:8719/dashboard/usage`
+
+대시보드에는 `codex_plan_review`의 토큰 사용량 합계와 요청 기록이 표시됩니다(기본값: 토큰 수 + 요청 해시/크기만 저장, 플랜 텍스트는 저장하지 않음).
+
+## 대시보드 자동 열기 (Config)
+
+기본값으로 MCP 서버가 시작될 때 로컬 대시보드 서버도 같이 시작되고, 브라우저에서 대시보드가 자동으로 열립니다.
+
+설정 파일을 만들거나 수정하세요:
+
+- macOS/Linux: `~/.coplan/config.json`
+- Windows: `%USERPROFILE%\\.coplan\\config.json`
+
+예시:
+
+```json
+{
+  "dashboard": {
+    "auto_open": true
+  }
+}
+```
+
+자동 열기 끄기:
+
+```json
+{
+  "dashboard": {
+    "auto_open": false
+  }
+}
+```
+
+환경변수로 강제(설정 파일보다 우선): `COPLAN_DASHBOARD_AUTO_OPEN=0`.
 
 ## 업데이트
 
