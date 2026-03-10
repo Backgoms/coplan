@@ -64,3 +64,12 @@ button {
   font-size: 0.9rem;
 }
 
+.link {
+  color: #0f62fe;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
