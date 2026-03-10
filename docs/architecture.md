@@ -17,7 +17,9 @@
    - `provider=chatgpt`: calls Codex CLI (`codex exec`) using ChatGPT session
    - `provider=openai`: calls OpenAI Responses API with local API key
 5. Codex returns structured JSON critique.
-6. Claude revises and returns final plan.
+6. Claude revises and returns final plan, including a "Codex Findings -> Plan Changes" section (what Codex flagged + how it was applied).
+
+Note: the MCP tool can also return optional token usage (`usage`) depending on provider support.
 
 ## Design Notes
 
